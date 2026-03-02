@@ -1,0 +1,16 @@
+# 환경변수 (절대 깃허브에 올리면 안 됨!)
+.env
+
+# 가상환경
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# 생성된 차트 (용량 큼)
+charts/
+
+# IDE
+.vscode/
+.idea/
