@@ -16,13 +16,26 @@ TICKER_ALIASES = {
     "sk하이닉스": "000660.KS",
 }
 
+NON_TICKER_TOKENS = {
+    "MA",
+    "RSI",
+    "VOLUME",
+    "RETURN",
+    "RETURNS",
+    "VOLATILITY",
+    "DRAWDOWN",
+    "NORMALIZED",
+    "LINE",
+    "CANDLE",
+}
+
 
 def _extract_tickers(message: str) -> list[str]:
     tickers = []
     upper_matches = re.findall(r"\b\d{6}\.KS\b|\b[A-Z]{1,6}(?:\.[A-Z]{1,3})?\b", message)
 
     for ticker in upper_matches:
-        if ticker not in tickers:
+        if ticker not in NON_TICKER_TOKENS and ticker not in tickers:
             tickers.append(ticker)
 
     lowered = message.lower()
