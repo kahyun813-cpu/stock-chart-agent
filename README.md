@@ -86,6 +86,8 @@ TSLA 3mo daily chart with RSI, volatility, and drawdown
 ```
 
 Creates a single-ticker chart with RSI, rolling volatility, and drawdown subplots.
+<img width="1278" height="673" alt="image" src="https://github.com/user-attachments/assets/06bf1125-90af-4b01-8ad4-184fe4916a53" />
+
 
 ```text
 Compare AAPL, MSFT, GOOGL 1y performance with normalized line chart
