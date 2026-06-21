@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -19,6 +20,27 @@ from backend.utils.technical_analysis import (
 CHARTS_DIR = os.getenv("CHARTS_DIR", "charts")
 os.makedirs(CHARTS_DIR, exist_ok=True)
 
+SUPPORTED_INDICATORS = {
+    "ma",
+    "rsi",
+    "volume",
+    "returns",
+    "volatility",
+    "drawdown",
+    "normalized",
+}
+
+DEMO_FALLBACK_TICKERS = {
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "TSLA",
+    "NVDA",
+    "005930.KS",
+    "000660.KS",
+}
+
+
 def _safe_filename_part(value: str) -> str:
     """Convert dynamic filename parts to filesystem-safe text."""
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", value)
@@ -33,6 +55,54 @@ def _serialize_summary(summary: dict) -> dict:
         if value is not None:
             serialized[key] = str(value)
     return serialized
+
+
+def _demo_row_count(period: str, interval: str) -> int:
+    if interval in {"1m", "5m", "15m", "30m", "60m", "1h"}:
+        return 40 if period in {"1d", "5d"} else 60
+    return {
+        "1d": 24,
+        "5d": 5,
+        "1mo": 30,
+        "3mo": 65,
+        "6mo": 126,
+        "1y": 252,
+        "2y": 504,
+        "5y": 1260,
+        "ytd": 180,
+        "max": 500,
+    }.get(period, 30)
+
+
+def _generate_demo_data(ticker: str, period: str, interval: str) -> pd.DataFrame:
+    """Generate deterministic fallback OHLCV data for local demos."""
+    count = _demo_row_count(period, interval)
+    freq = "h" if interval in {"1m", "5m", "15m", "30m", "60m", "1h"} else "D"
+    seed = sum(ord(char) for char in ticker)
+    rng = np.random.default_rng(seed)
+    base_price = 80 + (seed % 180)
+    drift = ((seed % 9) - 4) / 1000
+
+    returns = rng.normal(loc=drift, scale=0.018, size=count)
+    close = base_price * np.cumprod(1 + returns)
+    open_values = np.r_[close[0], close[:-1]]
+    high = np.maximum(open_values, close) * (1 + rng.uniform(0.002, 0.018, size=count))
+    low = np.minimum(open_values, close) * (1 - rng.uniform(0.002, 0.018, size=count))
+    volume = rng.integers(800_000, 8_000_000, size=count)
+    index = pd.date_range(end=pd.Timestamp.now().floor("h"), periods=count, freq=freq)
+
+    df = pd.DataFrame(
+        {
+            "Open": open_values,
+            "High": high,
+            "Low": low,
+            "Close": close,
+            "Volume": volume,
+        },
+        index=index,
+    )
+    df.attrs["data_source"] = "demo"
+    return df
 
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
@@ -80,6 +150,8 @@ def fetch_ticker_data(ticker: str, period: str, interval: str) -> tuple[pd.DataF
         df = t.history(period=period, interval=interval)
 
         if df is None or df.empty:
+            if ticker in DEMO_FALLBACK_TICKERS:
+                return _generate_demo_data(ticker, period, interval), ""
             return pd.DataFrame(), (
                 f"❌ `{ticker}` 에 대한 데이터가 없습니다.\n"
                 f"- US 주식: `AAPL`, `MSFT`, `TSLA`, `NVDA`\n"
@@ -103,6 +175,8 @@ def fetch_ticker_data(ticker: str, period: str, interval: str) -> tuple[pd.DataF
         return df, ""
 
     except Exception as e:
+        if ticker in DEMO_FALLBACK_TICKERS:
+            return _generate_demo_data(ticker, period, interval), ""
         return pd.DataFrame(), f"❌ `{ticker}` 데이터 수집 중 오류: {str(e)}"
 
 
@@ -121,7 +195,14 @@ def create_chart(
     """
     if indicators is None:
         indicators = []
-    indicators = [indicator.strip().lower() for indicator in indicators if indicator]
+    parsed_indicators = [indicator.strip().lower() for indicator in indicators if indicator]
+    indicators = list(
+        dict.fromkeys(
+            indicator
+            for indicator in parsed_indicators
+            if indicator in SUPPORTED_INDICATORS
+        )
+    )
 
     # 데이터 수집
     stock_data = {}
@@ -135,6 +216,9 @@ def create_chart(
         ticker: _serialize_summary(summarize_price_series(df))
         for ticker, df in stock_data.items()
     }
+    data_source = "demo" if any(
+        df.attrs.get("data_source") == "demo" for df in stock_data.values()
+    ) else "yfinance"
 
     # 서브플롯 구조 결정
     has_rsi = "rsi" in indicators
@@ -170,7 +254,7 @@ def create_chart(
     if has_volatility:
         subplot_rows += 1
         row_heights.append(0.16)
-        subplot_titles.append("Rolling Volatility 20D (%)")
+        subplot_titles.append("Rolling Volatility 20-period (%)")
         row_map["volatility"] = subplot_rows
     if has_drawdown:
         subplot_rows += 1
@@ -415,4 +499,5 @@ def create_chart(
         "chart_type": chart_type,
         "indicators": indicators,
         "summary": summary,
+        "data_source": data_source,
     }

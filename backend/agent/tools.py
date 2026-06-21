@@ -119,6 +119,11 @@ def generate_stock_chart(
     indicators_display = ", ".join(indicator_list).upper() if indicator_list else "None"
     summary_text = _format_summary(result.get("summary", {}))
     summary_block = f"\n\n{summary_text}\n" if summary_text else "\n"
+    data_note = (
+        "\n- Data source: `demo fallback` (yfinance was unavailable locally)"
+        if result.get("data_source") == "demo"
+        else ""
+    )
 
     return (
         f"**Chart generated!**\n\n"
@@ -128,6 +133,7 @@ def generate_stock_chart(
         f"- Chart type: `{chart_type}`\n"
         f"- Indicators: `{indicators_display}`\n"
         f"- File: `{result['filename']}`"
+        f"{data_note}"
         f"{summary_block}\n"
         f"CHART_FILE:{result['filename']}"
     )

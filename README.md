@@ -186,21 +186,47 @@ pip install -r requirements.txt
 
 ```env
 OPENAI_API_KEY=your_api_key_here
-BACKEND_URL=http://localhost:8000
+BACKEND_URL=http://127.0.0.1:8000
 CHARTS_DIR=charts
+LANGCHAIN_TRACING_V2=false
 ```
 
-4. Run the backend.
+4. Run locally from VSCode or PowerShell with one command.
+
+```bat
+.\scripts\run_local.bat
+```
+
+This starts the FastAPI backend on `http://127.0.0.1:8000` and the Streamlit frontend on `http://127.0.0.1:8501`.
+
+If your PowerShell execution policy allows local scripts, you can also run:
+
+```powershell
+.\scripts\run_local.ps1
+```
+
+5. Alternatively, run the backend manually.
 
 ```bash
-uvicorn backend.main:app --reload
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-5. Run the frontend in another terminal.
+6. Run the frontend manually in another terminal.
 
 ```bash
-streamlit run frontend/app.py
+python -m streamlit run frontend/app.py --server.address 127.0.0.1 --server.port 8501
 ```
+
+## Deployment Notes
+
+The current implementation uses Streamlit and FastAPI as long-running local web services. That structure is best suited for platforms such as Render, Railway, Fly.io, or Streamlit Community Cloud.
+
+For a Vercel deployment, the recommended next step is to migrate the Streamlit frontend to a Vercel-native frontend such as Next.js and keep the chart API as either:
+
+- a separate hosted FastAPI backend, or
+- serverless API routes adapted for Vercel's execution model.
+
+This README describes the implemented local/full-stack prototype and avoids claiming a Vercel deployment that is not yet implemented.
 
 ## Project Structure
 
@@ -220,7 +246,9 @@ stock-chart-agent/
 |-- prompts/
 |   `-- chart_agent.yaml
 |-- scripts/
-|   `-- demo_requests.md
+|   |-- demo_requests.md
+|   |-- run_local.bat
+|   `-- run_local.ps1
 |-- tests/
 |   `-- test_technical_analysis.py
 `-- README.md

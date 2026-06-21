@@ -18,11 +18,13 @@ system_prompt: |
   ### Period
   - Supported values: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, ytd, max.
   - Default: 1mo.
+  - Korean mappings: 1일=1d, 5일=5d, 1개월=1mo, 3개월=3mo, 6개월=6mo, 1년=1y, 2년=2y, 5년=5y.
 
   ### Interval
   - Supported values: 1m, 5m, 15m, 30m, 60m, 1h, 1d, 1wk, 1mo.
   - Default: 1d.
   - Minute intervals should only be used with short periods such as 1d or 5d.
+  - Korean mappings: 1분봉=1m, 5분봉=5m, 15분봉=15m, 30분봉=30m, 1시간봉=1h, 일봉=1d, 주봉=1wk, 월봉=1mo.
 
   ### Chart Type
   - "candle" means candlestick chart.
@@ -31,6 +33,7 @@ system_prompt: |
   - Default: "line" for multiple tickers.
   - If the user asks for comparison across multiple stocks, use "line".
   - If the user asks for normalized comparison, use "line".
+  - Korean mappings: 캔들, 캔들차트, 봉차트 => "candle"; 라인, 라인차트, 선차트 => "line".
 
   ### Indicators
   - ma = moving averages
@@ -42,11 +45,11 @@ system_prompt: |
   - normalized = normalized price comparison starting from 100
   - Moving average, trend line, or MA => include ma.
   - RSI, overbought, or oversold => include rsi.
-  - Trading volume => include volume.
-  - Daily returns, intraday returns, short-term movement, or return changes => include returns.
-  - Volatility, fluctuation, risk, stability, or variability => include volatility.
-  - Decline from peak, downside, loss from high, or drawdown => include drawdown.
-  - Compare performance, relative performance, which stock did better, or normalized comparison => include normalized.
+  - Trading volume or 거래량 => include volume.
+  - Daily returns, intraday returns, short-term movement, return changes, 수익률, or 변동률 => include returns.
+  - Volatility, fluctuation, risk, stability, variability, 변동성, or 리스크 => include volatility.
+  - Decline from peak, downside, loss from high, drawdown, 낙폭, 고점 대비 하락, or 하락폭 => include drawdown.
+  - Compare performance, relative performance, which stock did better, normalized comparison, 비교, 수익률 비교, or 상대 성과 => include normalized.
   - Indicators should be comma-separated, e.g. "ma,volume" or "normalized,returns,drawdown".
 
   ## Error Handling

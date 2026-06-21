@@ -104,7 +104,20 @@ async def chat(request: ChatRequest):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+        try:
+            from backend.agent.fallback import run_local_chart_fallback
+
+            fallback_result = run_local_chart_fallback(request.message)
+            return ChatResponse(
+                response=fallback_result["response"],
+                chart_files=fallback_result.get("chart_files", []),
+                error=fallback_result.get("error", ""),
+            )
+        except Exception as fallback_error:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Agent error: {str(e)}; fallback error: {str(fallback_error)}",
+            )
 
 
 @app.get("/charts/{filename}")
