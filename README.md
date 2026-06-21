@@ -266,9 +266,3 @@ stock-chart-agent/
 - The app does not provide financial advice.
 - In-memory session history resets when the backend restarts.
 - Multi-ticker subplots can become visually crowded when many indicators are selected.
-
-## Resume Bullet Suggestions
-
-- Built an end-to-end natural-language stock time-series visualization agent using LangGraph, FastAPI, Streamlit, yfinance, pandas, and Plotly.
-- Implemented interactive candlestick/line charts with moving averages, RSI, volume, normalized multi-ticker comparison, returns, rolling volatility, and drawdown.
-- Added reusable pandas analysis utilities and pytest coverage for return, volatility, drawdown, normalization, and summary metric calculations.
