@@ -1,6 +1,47 @@
-import os
 from langchain_core.tools import tool
+
 from backend.utils.chart_generator import create_chart, validate_interval_period
+
+
+SUPPORTED_INDICATORS = {
+    "ma",
+    "rsi",
+    "volume",
+    "returns",
+    "volatility",
+    "drawdown",
+    "normalized",
+}
+
+
+def _format_number(value, suffix: str = "") -> str:
+    """Format a numeric summary value, falling back to N/A."""
+    if value is None:
+        return "N/A"
+    try:
+        return f"{float(value):.2f}{suffix}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _format_summary(summary: dict) -> str:
+    """Build a concise summary section from create_chart output."""
+    if not summary:
+        return ""
+
+    lines = ["**Summary**"]
+    for ticker, metrics in summary.items():
+        metrics = metrics or {}
+        latest_close = _format_number(metrics.get("latest_close"))
+        total_return = _format_number(metrics.get("total_return_pct"), "%")
+        max_drawdown = _format_number(metrics.get("max_drawdown_pct"), "%")
+        volatility = _format_number(metrics.get("realized_volatility_pct"), "%")
+        lines.append(
+            f"- `{ticker}`: close {latest_close}, return {total_return}, "
+            f"max drawdown {max_drawdown}, volatility {volatility}"
+        )
+
+    return "\n".join(lines)
 
 
 @tool
@@ -12,35 +53,58 @@ def generate_stock_chart(
     indicators: str = "",
 ) -> str:
     """
-    주식 차트를 생성하고 인터랙티브 HTML 파일로 저장합니다.
+    Generate an interactive stock chart and save it as an HTML file.
 
     Args:
-        tickers: 콤마로 구분된 티커 심볼 (예: "AAPL" 또는 "AAPL,MSFT")
-        period: 조회 기간 - 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max
-        interval: 캔들 간격 - 1m/5m/15m/30m/60m/1h/1d/1wk/1mo
-        chart_type: 차트 종류 - "candle" 또는 "line"
-        indicators: 지표 (콤마 구분) - "ma", "rsi", "volume" 또는 조합 "ma,rsi,volume"
+        tickers: Comma-separated ticker symbols, e.g. "AAPL" or "AAPL,MSFT".
+        period: Lookback period - 1d/5d/1mo/3mo/6mo/1y/2y/5y/ytd/max.
+        interval: Candle interval - 1m/5m/15m/30m/60m/1h/1d/1wk/1mo.
+        chart_type: Chart type - "candle" or "line".
+        indicators: Comma-separated indicators. Supported values:
+            ma = moving averages,
+            rsi = relative strength index,
+            volume = volume bars,
+            returns = simple percentage returns,
+            volatility = rolling 20-period annualized volatility,
+            drawdown = drawdown from running high,
+            normalized = relative price performance from a base value of 100.
 
     Returns:
-        성공 시 차트 정보, 실패 시 에러 메시지
+        Chart information on success, or an error message on failure.
     """
-    # interval-period 유효성 검사
+    period = period.strip().lower()
+    interval = interval.strip().lower()
+    chart_type = chart_type.strip().lower()
+    if chart_type == "candlestick":
+        chart_type = "candle"
+
     validation_error = validate_interval_period(interval, period)
     if validation_error:
         return validation_error
 
-    # 파라미터 파싱
-    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
-    indicator_list = [i.strip().lower() for i in indicators.split(",") if i.strip()]
+    ticker_list = [ticker.strip().upper() for ticker in tickers.split(",") if ticker.strip()]
+    parsed_indicators = [
+        indicator.strip().lower()
+        for indicator in indicators.split(",")
+        if indicator.strip()
+    ]
+    indicator_list = list(
+        dict.fromkeys(
+            indicator
+            for indicator in parsed_indicators
+            if indicator in SUPPORTED_INDICATORS
+        )
+    )
 
     if not ticker_list:
         return "❌ 티커 심볼이 없습니다. 예: AAPL, MSFT, TSLA"
 
-    # 멀티 티커는 line 차트 강제
-    if len(ticker_list) > 1 and chart_type == "candle":
+    if chart_type not in {"candle", "line"}:
+        chart_type = "candle" if len(ticker_list) == 1 else "line"
+
+    if (len(ticker_list) > 1 or "normalized" in indicator_list) and chart_type == "candle":
         chart_type = "line"
 
-    # 차트 생성
     result = create_chart(
         tickers=ticker_list,
         period=period,
@@ -52,14 +116,18 @@ def generate_stock_chart(
     if not result["success"]:
         return result["error"]
 
-    indicators_display = ", ".join(indicator_list).upper() if indicator_list else "없음"
+    indicators_display = ", ".join(indicator_list).upper() if indicator_list else "None"
+    summary_text = _format_summary(result.get("summary", {}))
+    summary_block = f"\n\n{summary_text}\n" if summary_text else "\n"
+
     return (
-        f"✅ **차트 생성 완료!**\n\n"
-        f"- 📊 티커: `{', '.join(ticker_list)}`\n"
-        f"- 📅 기간: `{period}`\n"
-        f"- ⏱️ 인터벌: `{interval}`\n"
-        f"- 🕯️ 차트 유형: `{chart_type}`\n"
-        f"- 📈 지표: `{indicators_display}`\n"
-        f"- 💾 파일: `{result['filename']}`\n\n"
+        f"**Chart generated!**\n\n"
+        f"- Tickers: `{', '.join(ticker_list)}`\n"
+        f"- Period: `{period}`\n"
+        f"- Interval: `{interval}`\n"
+        f"- Chart type: `{chart_type}`\n"
+        f"- Indicators: `{indicators_display}`\n"
+        f"- File: `{result['filename']}`"
+        f"{summary_block}\n"
         f"CHART_FILE:{result['filename']}"
     )

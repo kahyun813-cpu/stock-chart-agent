@@ -1,14 +1,11 @@
 import streamlit as st
 import requests
 import os
-import base64
-from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
-CHARTS_DIR = os.getenv("CHARTS_DIR", "charts")
 
 # ── 페이지 설정 ────────────────────────────────────────────────────
 st.set_page_config(
@@ -131,6 +128,10 @@ def clear_conversation():
 # ── 사이드바 ───────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 📈 Stock Chart Agent")
+    st.caption(
+        "자연어 요청으로 인터랙티브 주식 시계열 차트를 생성합니다. "
+        "시각화와 탐색적 분석용이며, 금융 조언이 아닙니다."
+    )
     st.markdown("---")
 
     # 서버 상태 체크
@@ -145,11 +146,11 @@ with st.sidebar:
     st.markdown("### 💡 예시 요청")
     
     examples = [
-        "AAPL 1개월 일봉 캔들차트 그려줘",
-        "TSLA 3개월 일봉 MA 포함해서",
-        "AAPL, MSFT, GOOGL 비교 라인차트 1년",
-        "NVDA 1주일 1시간봉 RSI랑 거래량 포함",
-        "삼성전자(005930.KS) 6개월 일봉",
+        "AAPL 1개월 일봉 캔들차트 MA랑 거래량 포함",
+        "TSLA 3개월 일봉 RSI, 변동성, drawdown 보여줘",
+        "AAPL, MSFT, GOOGL 1년 수익률 비교 normalized 라인차트",
+        "NVDA 5일 1시간봉 returns랑 volume 포함",
+        "삼성전자(005930.KS) 6개월 일봉 MA, RSI 포함",
     ]
     
     for example in examples:
@@ -165,7 +166,15 @@ with st.sidebar:
     
     **⚠️ 주의:** 분봉(1m~60m)은 최대 7일만 가능
     
-    **Indicators:** `ma` `rsi` `volume`
+    **Indicators**
+    
+    - `ma`: moving averages
+    - `rsi`: RSI
+    - `volume`: volume bars
+    - `returns`: simple percentage returns
+    - `volatility`: rolling volatility
+    - `drawdown`: drawdown from running maximum
+    - `normalized`: normalized comparison from base 100
     """)
     
     st.markdown("---")

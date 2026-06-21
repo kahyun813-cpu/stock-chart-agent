@@ -1,12 +1,38 @@
 import os
+import re
+from datetime import datetime
+from typing import Optional
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Optional
 import yfinance as yf
+
+from backend.utils.technical_analysis import (
+    calculate_drawdown,
+    calculate_rolling_volatility,
+    calculate_simple_returns,
+    normalize_price,
+    summarize_price_series,
+)
 
 CHARTS_DIR = os.getenv("CHARTS_DIR", "charts")
 os.makedirs(CHARTS_DIR, exist_ok=True)
+
+def _safe_filename_part(value: str) -> str:
+    """Convert dynamic filename parts to filesystem-safe text."""
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", value)
+    return safe.strip("_") or "chart"
+
+
+def _serialize_summary(summary: dict) -> dict:
+    """Convert date-like summary values to strings for API/UI display."""
+    serialized = dict(summary)
+    for key in ("start_date", "end_date"):
+        value = serialized.get(key)
+        if value is not None:
+            serialized[key] = str(value)
+    return serialized
 
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
@@ -95,6 +121,7 @@ def create_chart(
     """
     if indicators is None:
         indicators = []
+    indicators = [indicator.strip().lower() for indicator in indicators if indicator]
 
     # 데이터 수집
     stock_data = {}
@@ -104,22 +131,52 @@ def create_chart(
             return {"success": False, "error": error}
         stock_data[ticker] = df
 
+    summary = {
+        ticker: _serialize_summary(summarize_price_series(df))
+        for ticker, df in stock_data.items()
+    }
+
     # 서브플롯 구조 결정
     has_rsi = "rsi" in indicators
     has_volume = "volume" in indicators
+    has_returns = "returns" in indicators
+    has_volatility = "volatility" in indicators
+    has_drawdown = "drawdown" in indicators
+    has_normalized = "normalized" in indicators
+
+    if has_normalized:
+        chart_type = "line"
 
     subplot_rows = 1
     row_heights = [0.65]
-    subplot_titles = ["Price"]
+    subplot_titles = ["Normalized Price (Base 100)" if has_normalized else "Price"]
+    row_map = {}
 
     if has_rsi:
         subplot_rows += 1
         row_heights.append(0.2)
         subplot_titles.append("RSI (14)")
+        row_map["rsi"] = subplot_rows
     if has_volume:
         subplot_rows += 1
         row_heights.append(0.15)
         subplot_titles.append("Volume")
+        row_map["volume"] = subplot_rows
+    if has_returns:
+        subplot_rows += 1
+        row_heights.append(0.16)
+        subplot_titles.append("Returns (%)")
+        row_map["returns"] = subplot_rows
+    if has_volatility:
+        subplot_rows += 1
+        row_heights.append(0.16)
+        subplot_titles.append("Rolling Volatility 20D (%)")
+        row_map["volatility"] = subplot_rows
+    if has_drawdown:
+        subplot_rows += 1
+        row_heights.append(0.16)
+        subplot_titles.append("Drawdown (%)")
+        row_map["drawdown"] = subplot_rows
 
     # Figure 생성
     fig = make_subplots(
@@ -138,7 +195,7 @@ def create_chart(
         color = line_colors[idx % len(line_colors)]
 
         # ── 메인 차트 (캔들스틱 or 라인) ──────────────────────────
-        if chart_type == "candle" and len(tickers) == 1:
+        if chart_type == "candle" and len(tickers) == 1 and not has_normalized:
             fig.add_trace(
                 go.Candlestick(
                     x=df.index,
@@ -154,10 +211,11 @@ def create_chart(
                 col=1,
             )
         else:
+            y_values = normalize_price(df["Close"]) if has_normalized else df["Close"]
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
-                    y=df["Close"],
+                    y=y_values,
                     mode="lines",
                     name=ticker,
                     line=dict(color=color, width=2),
@@ -167,7 +225,7 @@ def create_chart(
             )
 
         # ── 이동평균선 (MA) ────────────────────────────────────────
-        if "ma" in indicators:
+        if "ma" in indicators and not has_normalized:
             close = df["Close"]
             ma_configs = [
                 (20, "#FF6B6B", "MA20"),
@@ -190,8 +248,6 @@ def create_chart(
                         col=1,
                     )
 
-        current_row = 2
-
         # ── RSI ───────────────────────────────────────────────────
         if has_rsi:
             close = df["Close"]
@@ -204,20 +260,19 @@ def create_chart(
                     name=f"{ticker} RSI" if len(tickers) > 1 else "RSI",
                     line=dict(color="#A78BFA", width=1.5),
                 ),
-                row=current_row,
+                row=row_map["rsi"],
                 col=1,
             )
             # 과매수/과매도 라인
             fig.add_hline(
                 y=70, line=dict(color="#EF5350", dash="dash", width=1), opacity=0.6,
-                row=current_row, col=1,
+                row=row_map["rsi"], col=1,
             )
             fig.add_hline(
                 y=30, line=dict(color="#26A69A", dash="dash", width=1), opacity=0.6,
-                row=current_row, col=1,
+                row=row_map["rsi"], col=1,
             )
-            fig.update_yaxes(range=[0, 100], row=current_row, col=1)
-            current_row += 1
+            fig.update_yaxes(range=[0, 100], row=row_map["rsi"], col=1)
 
         # ── 거래량 (Volume) ────────────────────────────────────────
         if has_volume:
@@ -238,7 +293,54 @@ def create_chart(
                     name=f"{ticker} Volume" if len(tickers) > 1 else "Volume",
                     marker=dict(color=vol_colors, opacity=0.8),
                 ),
-                row=current_row,
+                row=row_map["volume"],
+                col=1,
+            )
+
+        if has_returns:
+            returns_pct = calculate_simple_returns(df["Close"]) * 100
+            return_colors = [
+                "#26A69A" if value >= 0 else "#EF5350"
+                for value in returns_pct.fillna(0)
+            ]
+            fig.add_trace(
+                go.Bar(
+                    x=df.index,
+                    y=returns_pct,
+                    name=f"{ticker} Returns" if len(tickers) > 1 else "Returns",
+                    marker=dict(color=return_colors, opacity=0.8),
+                ),
+                row=row_map["returns"],
+                col=1,
+            )
+
+        if has_volatility:
+            volatility_pct = calculate_rolling_volatility(df["Close"], window=20) * 100
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=volatility_pct,
+                    mode="lines",
+                    name=f"{ticker} Volatility" if len(tickers) > 1 else "Volatility",
+                    line=dict(color=color, width=1.5),
+                ),
+                row=row_map["volatility"],
+                col=1,
+            )
+
+        if has_drawdown:
+            drawdown_pct = calculate_drawdown(df["Close"]) * 100
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=drawdown_pct,
+                    mode="lines",
+                    name=f"{ticker} Drawdown" if len(tickers) > 1 else "Drawdown",
+                    line=dict(color=color, width=1.5),
+                    fill="tozeroy",
+                    fillcolor="rgba(239,83,80,0.12)",
+                ),
+                row=row_map["drawdown"],
                 col=1,
             )
 
@@ -281,8 +383,16 @@ def create_chart(
             showline=True, linecolor="#30363D", row=i, col=1,
         )
 
+    for indicator in ("returns", "volatility", "drawdown"):
+        if indicator in row_map:
+            fig.update_yaxes(ticksuffix="%", row=row_map[indicator], col=1)
+
     # ── HTML 파일로 저장 ───────────────────────────────────────────
-    filename = f"chart_{'_'.join(tickers)}_{period}_{interval}.html"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    safe_tickers = _safe_filename_part("_".join(tickers))
+    safe_period = _safe_filename_part(period)
+    safe_interval = _safe_filename_part(interval)
+    filename = f"chart_{safe_tickers}_{safe_period}_{safe_interval}_{timestamp}.html"
     filepath = os.path.join(CHARTS_DIR, filename)
 
     fig.write_html(
@@ -304,4 +414,5 @@ def create_chart(
         "interval": interval,
         "chart_type": chart_type,
         "indicators": indicators,
+        "summary": summary,
     }
