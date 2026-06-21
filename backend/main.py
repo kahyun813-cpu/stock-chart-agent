@@ -1,25 +1,25 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel
 
 load_dotenv()
 
-# 차트 저장 폴더 생성
 CHARTS_DIR = os.getenv("CHARTS_DIR", "charts")
 os.makedirs(CHARTS_DIR, exist_ok=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """앱 시작/종료 이벤트"""
-    print("🚀 Stock Chart Agent Backend Starting...")
+    """Log backend startup and shutdown events."""
+    print("Stock Chart Agent backend starting...")
     yield
-    print("👋 Backend Shutting Down...")
+    print("Stock Chart Agent backend shutting down...")
 
 
 app = FastAPI(
@@ -29,7 +29,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 설정 (Streamlit → FastAPI 통신 허용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,7 +38,6 @@ app.add_middleware(
 )
 
 
-# ── 요청/응답 모델 ─────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
@@ -51,14 +49,12 @@ class ChatResponse(BaseModel):
     error: str = ""
 
 
-# ── 세션별 대화 기록 (메모리) ──────────────────────────────────────
 conversation_history: dict[str, list] = {}
 
 
-# ── 엔드포인트 ─────────────────────────────────────────────────────
 @app.get("/")
 async def root():
-    return {"message": "Stock Chart Agent API is running! 📈"}
+    return {"message": "Stock Chart Agent API is running."}
 
 
 @app.get("/health")
@@ -68,16 +64,13 @@ async def health_check():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """에이전트와 채팅"""
+    """Run the chart agent, with a local fallback if the LLM is unavailable."""
     try:
-        # 지연 임포트 (앱 시작 속도 최적화)
         from backend.agent.graph import graph
 
-        # 세션 기록 가져오기 (없으면 새로 만들기)
         history = conversation_history.get(request.session_id, [])
         history.append(HumanMessage(content=request.message))
 
-        # 에이전트 실행
         result = graph.invoke(
             {
                 "messages": history,
@@ -86,14 +79,11 @@ async def chat(request: ChatRequest):
             }
         )
 
-        # 대화 기록 업데이트
         conversation_history[request.session_id] = result["messages"]
 
-        # 마지막 AI 응답 추출
         last_message = result["messages"][-1]
         response_text = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-        # CHART_FILE 태그 제거 (UI에 노출 방지)
         if "CHART_FILE:" in response_text:
             response_text = response_text.split("CHART_FILE:")[0].strip()
 
@@ -122,7 +112,7 @@ async def chat(request: ChatRequest):
 
 @app.get("/charts/{filename}")
 async def get_chart(filename: str):
-    """HTML 차트 파일 제공"""
+    """Serve a generated HTML chart file."""
     filepath = os.path.join(CHARTS_DIR, filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Chart not found: {filename}")
@@ -131,16 +121,16 @@ async def get_chart(filename: str):
 
 @app.get("/charts")
 async def list_charts():
-    """생성된 모든 차트 목록"""
+    """List generated chart files."""
     if not os.path.exists(CHARTS_DIR):
         return {"charts": []}
-    charts = [f for f in os.listdir(CHARTS_DIR) if f.endswith(".html")]
+    charts = [filename for filename in os.listdir(CHARTS_DIR) if filename.endswith(".html")]
     return {"charts": sorted(charts, reverse=True)}
 
 
 @app.delete("/session/{session_id}")
 async def clear_session(session_id: str):
-    """세션 대화 기록 초기화"""
+    """Clear session chat history."""
     if session_id in conversation_history:
         del conversation_history[session_id]
     return {"message": f"Session {session_id} cleared"}

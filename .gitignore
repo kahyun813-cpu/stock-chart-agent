@@ -1,7 +1,7 @@
-# 환경변수 (절대 깃허브에 올리면 안 됨!)
+# Environment variables
 .env
 
-# 가상환경
+# Virtual environments and Python cache
 venv/
 __pycache__/
 .pytest_cache/
@@ -9,9 +9,9 @@ __pycache__/
 *.pyo
 .DS_Store
 
-# 생성된 차트 (용량 큼)
+# Generated chart files
 charts/
 
-# IDE
+# IDE settings
 .vscode/
 .idea/

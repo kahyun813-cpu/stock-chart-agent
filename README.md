@@ -76,43 +76,43 @@ Notes:
 ## Example Requests
 
 ```text
-AAPL 1개월 일봉 캔들차트 MA랑 거래량 포함
+AAPL 1mo daily candlestick chart with MA and volume
 ```
 
 Creates a single-ticker candlestick chart with moving averages and volume.
 
 ```text
-TSLA 3개월 일봉 RSI, 변동성, drawdown 보여줘
+TSLA 3mo daily chart with RSI, volatility, and drawdown
 ```
 
 Creates a single-ticker chart with RSI, rolling volatility, and drawdown subplots.
 
 ```text
-AAPL, MSFT, GOOGL 1년 수익률 비교 normalized 라인차트
+Compare AAPL, MSFT, GOOGL 1y performance with normalized line chart
 ```
 
 Creates a multi-ticker normalized line comparison from base 100.
 
 ```text
-NVDA 5일 1시간봉 returns랑 volume 포함
+NVDA 5d 1h chart with returns and volume
 ```
 
 Creates a short-period intraday chart with returns and volume.
 
 ```text
-삼성전자(005930.KS) 6개월 일봉 MA, RSI 포함
+Samsung 005930.KS 6mo daily chart with MA and RSI
 ```
 
 Creates a Korean stock chart with moving averages and RSI.
 
 ```text
-AAPL 1개월 1분봉 차트 그려줘
+AAPL 1mo 1m chart
 ```
 
 Should explain the interval-period mismatch and suggest using a shorter period or a larger interval.
 
 ```text
-AAPL 지금 사도 돼?
+Should I buy AAPL now?
 ```
 
 The system should not provide financial advice. It should explain that the app is for visualization and exploratory analysis only, and offer to generate a chart with indicators such as returns, volatility, drawdown, or RSI.

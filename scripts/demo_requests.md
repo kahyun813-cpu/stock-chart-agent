@@ -7,7 +7,7 @@ This file documents example natural-language requests and the expected behavior 
 User request:
 
 ```text
-AAPL 1개월 일봉 캔들차트 MA랑 거래량 포함
+AAPL 1mo daily candlestick chart with MA and volume
 ```
 
 Expected behavior:
@@ -25,7 +25,7 @@ Expected behavior:
 User request:
 
 ```text
-TSLA 3개월 일봉 RSI, 변동성, drawdown 보여줘
+TSLA 3mo daily chart with RSI, volatility, and drawdown
 ```
 
 Expected behavior:
@@ -42,7 +42,7 @@ Expected behavior:
 User request:
 
 ```text
-AAPL, MSFT, GOOGL 1년 수익률 비교 normalized 라인차트
+Compare AAPL, MSFT, GOOGL 1y performance with normalized line chart
 ```
 
 Expected behavior:
@@ -59,7 +59,7 @@ Expected behavior:
 User request:
 
 ```text
-NVDA 5일 1시간봉 returns랑 volume 포함
+NVDA 5d 1h chart with returns and volume
 ```
 
 Expected behavior:
@@ -75,7 +75,7 @@ Expected behavior:
 User request:
 
 ```text
-INVALIDTICKER 1개월 일봉 차트 그려줘
+INVALIDTICKER 1mo daily chart
 ```
 
 Expected behavior:
@@ -89,7 +89,7 @@ Expected behavior:
 User request:
 
 ```text
-AAPL 1개월 1분봉 차트 그려줘
+AAPL 1mo 1m chart
 ```
 
 Expected behavior:
@@ -103,7 +103,7 @@ Expected behavior:
 User request:
 
 ```text
-AAPL 지금 사도 돼?
+Should I buy AAPL now?
 ```
 
 Expected behavior:

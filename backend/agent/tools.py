@@ -97,7 +97,7 @@ def generate_stock_chart(
     )
 
     if not ticker_list:
-        return "❌ 티커 심볼이 없습니다. 예: AAPL, MSFT, TSLA"
+        return "No ticker symbol was provided. Examples: AAPL, MSFT, TSLA."
 
     if chart_type not in {"candle", "line"}:
         chart_type = "candle" if len(ticker_list) == 1 else "line"
